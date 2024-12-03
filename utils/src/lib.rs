@@ -7,3 +7,8 @@ pub fn read_lines(filename: &str) -> Vec<String> {
     .map(String::from)  // make each slice into a string
     .collect()  // gather them together into a vector
 }
+
+pub fn read_file(filename: &str) -> String {
+    read_to_string(filename)
+    .unwrap()
+}
