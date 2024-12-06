@@ -1,0 +1,8 @@
+[package]
+name = "day-6"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+array2d = "0.3.2"
+utils = { path = "../utils" }
