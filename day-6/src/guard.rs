@@ -46,16 +46,11 @@ impl Guard {
 
         let mut next_row = self.row as i32;
         let mut next_col = self.column as i32;
-        if self.direction == Direction::North {
-            next_row -= 1;
-        } else if self.direction == Direction::East {
-            next_col += 1;
-        } else if self.direction == Direction::South {
-            next_row += 1;
-        } else if self.direction == Direction::West {
-            next_col -= 1;
-        } else {
-            panic!("Unknown map direction: {:?}", self.direction);
+        match self.direction {
+            Direction::North => next_row -= 1,
+            Direction::East => next_col += 1,
+            Direction::South => next_row += 1,
+            Direction::West => next_col -= 1,
         }
 
         // we've left the map!
@@ -80,14 +75,11 @@ impl Guard {
         }
         // If we hit an obstacle by moving forward one step, rotate 90º CW and exit.
         if t.obstacle {
-            if self.direction == Direction::North {
-                self.direction = Direction::East;
-            } else if self.direction == Direction::East {
-                self.direction = Direction::South;
-            } else if self.direction == Direction::South {
-                self.direction = Direction::West;
-            } else if self.direction == Direction::West {
-                self.direction = Direction::North;
+            match self.direction {
+                Direction::North => self.direction = Direction::East,
+                Direction::East => self.direction = Direction::South,
+                Direction::South => self.direction = Direction::West,
+                Direction::West => self.direction = Direction::North,
             }
         } else {
             // If we haven't hit an obstacle, move forward one tile.
