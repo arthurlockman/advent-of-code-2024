@@ -1,17 +1,17 @@
 use array2d::Array2D;
 use guard::Guard;
 use map_tile::MapTile;
-use utils::read_lines;
+use utils::{read_lines, time};
 
 mod guard;
 mod map_tile;
 
 fn main() {
     let (map, guard) = build_map("src/map.txt");
-    let visited_tiles = walk_map(&mut map.clone(), &mut guard.clone());
-    println!("Part 1: The Guard visited {} tiles.", visited_tiles);
-    let blocked_tiles = block_map(&mut map.clone(), &mut guard.clone());
-    println!("Part 2: There are {} possible block positions.", blocked_tiles);
+    let visited_tiles = time(|| walk_map(&mut map.clone(), &mut guard.clone()));
+    println!("Part 1: The Guard visited {} tiles (took {} seconds)", visited_tiles.0, visited_tiles.1.as_secs_f32());
+    let blocked_tiles = time(|| block_map(&mut map.clone(), &mut guard.clone()));
+    println!("Part 2: There are {} possible block positions (took {} seconds)", blocked_tiles.0, blocked_tiles.1.as_secs_f32());
 }
 
 fn build_map(filename: &str) -> (Array2D<MapTile>, Guard) {
@@ -39,9 +39,19 @@ fn walk_map(map: &mut Array2D<MapTile>, guard: &mut Guard) -> usize {
 }
 
 fn block_map(map: &Array2D<MapTile>, guard: &Guard) -> usize {
+    // Walk a copy of the map from the starting point so that we can use it
+    // to filter which tiles should be tried
+    let mut walked_map = map.clone();
+    let mut walked_guard = guard.clone();
+    let _ = walk_map(&mut walked_map, &mut walked_guard);
+
+    // Iterate through the whole map and check if blocking a tile would cause a loop
     let mut block_possibilities: usize = 0;
     for row in 0..map.row_len() {
         for col in 0..map.column_len() {
+            if !walked_map.get(row, col).unwrap().visited {
+                continue;
+            }
             let mut new_map = map.clone();
             let mut new_guard = guard.clone();
             let test_tile = new_map.get_mut(row, col).unwrap();
