@@ -23,9 +23,6 @@ fn validate_equations(filename: &str, operators: Vec<char>) -> u128 {
 
 #[cfg(test)]
 mod tests {
-    use eq::Equation;
-    use utils::read_lines;
-
     use super::*;
 
     #[test]
