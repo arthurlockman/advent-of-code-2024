@@ -24,12 +24,4 @@ impl File {
         }
         (start_position .. start_position + self.size).map(|p| self.id * p).sum()
     }
-
-    pub fn print(&self) -> String {
-        let char: String = match self.empty {
-            true => ".".to_string(),
-            false => self.id.to_string()
-        };
-        "[".to_string() + &char.repeat(self.size) + "]"
-    }
 }

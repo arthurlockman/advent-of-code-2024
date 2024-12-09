@@ -1,9 +1,9 @@
 mod block;
 mod file;
-use std::io::empty;
 
 use block::Block;
 use file::File;
+use indicatif::ProgressBar;
 use itertools::Itertools;
 use utils::{read_file, time};
 
@@ -97,46 +97,49 @@ fn defrag_stupidly(disk: &Vec<Block>) -> usize {
 }
 
 fn defrag(disk: &Vec<File>) -> usize {
-    let mut new_disk = disk.clone();
-    let data_blocks_with_positions: Vec<(usize, &File)> = disk
+    let max_disk: Vec<usize> = disk
         .iter()
-        .enumerate()
-        .filter(|&b| !b.1.empty)
-        .sorted_by_key(|f| f.1.id)
+        .filter(|&d| !d.empty)
+        .sorted_by_key(|&d| d.id)
+        .rev()
+        .map(|d| d.id)
         .collect();
-    for (position, data_block) in data_blocks_with_positions.iter().rev() {
-        println!("Block {}", data_block.id);
-        if let Some((empty_pos, empty_block)) = new_disk
+    let bar = ProgressBar::new(max_disk[0] as u64);
+    let mut new_disk = disk.clone();
+    for file_id in disk
+        .iter()
+        .filter(|&d| !d.empty)
+        .sorted_by_key(|&d| d.id)
+        .rev()
+        .map(|d| d.id)
+    {
+        bar.set_position((max_disk[0] - file_id) as u64);
+        // Locate the file in the disk
+        let (file_pos, file) = new_disk
             .iter()
-            .find_position(|&b| b.empty && b.size >= data_block.size)
+            .find_position(|f| f.id == file_id)
+            .map(|(pos, file)| (pos, file.clone()))
+            .unwrap();
+        // Find an appropriate empty space in the disk that's to the left of the file
+        if let Some((empty_pos, empty_block)) = new_disk[0..file_pos]
+            .iter()
+            .find_position(|f| f.empty && f.size >= file.size)
+            .map(|(pos, file)| (pos, file.clone()))
         {
-            if empty_pos <= *position {
-                let mut removal_index =
-                    new_disk.iter().position(|b| b.id == data_block.id).unwrap();
-                // We found empty space before the current block that's big enough
-                if empty_block.size == data_block.size {
-                    // the space is the same size as the block, so we can just insert the block
-                    // where the space was
-
-                    new_disk.swap(empty_pos, removal_index);
-                } else {
-                    // the space is bigger than the block but we can fix that.
-                    // shrink the space and insert the block at the beginning.
-                    let mut new_empty_block = empty_block.clone();
-                    removal_index += 1;
-                    new_empty_block.size = new_empty_block.size - data_block.size;
-                    new_disk[empty_pos] = new_empty_block;
-                    new_disk.insert(empty_pos, (*data_block).clone());
-                    new_disk.remove(removal_index);
-                    new_disk.insert(
-                        removal_index,
-                        File::new(removal_index, data_block.size as u32, true),
-                    );
-                }
-                // finally, compact free space
-                compact_free_space(&mut new_disk);
+            // We have an appropriate empty block
+            if empty_block.size == file.size {
+                // Block and file are equal sized, we can swap them
+                new_disk.swap(file_pos, empty_pos);
+            } else {
+                // Block is larger than file. Compact the block, insert
+                // the file, and then swap
+                new_disk.swap(file_pos, empty_pos);
+                let new_empty = File::new(0, (empty_block.size - file.size) as u32, true);
+                new_disk[file_pos].size = file.size;
+                new_disk.insert(empty_pos + 1, new_empty);
             }
         }
+        compact_free_space(&mut new_disk);
     }
     let mut checksum = 0;
     let mut start_pos = 0;
@@ -144,6 +147,7 @@ fn defrag(disk: &Vec<File>) -> usize {
         checksum += file.checksum(start_pos);
         start_pos += file.size;
     }
+    bar.finish_and_clear();
     checksum
 }
 
