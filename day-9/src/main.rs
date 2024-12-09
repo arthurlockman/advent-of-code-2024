@@ -139,7 +139,6 @@ fn defrag(disk: &Vec<File>) -> usize {
                 new_disk.insert(empty_pos + 1, new_empty);
             }
         }
-        compact_free_space(&mut new_disk);
     }
     let mut checksum = 0;
     let mut start_pos = 0;
@@ -149,28 +148,6 @@ fn defrag(disk: &Vec<File>) -> usize {
     }
     bar.finish_and_clear();
     checksum
-}
-
-fn compact_free_space(disk: &mut Vec<File>) {
-    let mut new_disk: Vec<File> = Vec::new();
-    let mut disk_iter = disk.iter();
-    let mut current_file = disk_iter.next();
-    while current_file.is_some() {
-        let f = current_file.unwrap();
-        if !f.empty {
-            new_disk.push(f.clone());
-            current_file = disk_iter.next();
-        } else {
-            let mut new_empty = f.clone();
-            current_file = disk_iter.next();
-            while current_file.is_some() && current_file.unwrap().empty {
-                new_empty.size += current_file.unwrap().size;
-                current_file = disk_iter.next();
-            }
-            new_disk.push(new_empty);
-        }
-    }
-    *disk = new_disk;
 }
 
 #[cfg(test)]
