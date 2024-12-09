@@ -1,0 +1,15 @@
+[package]
+name = "day-9"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+indicatif = "0.17.9"
+itertools = "0.13.0"
+utils = { version = "0.1.0", path = "../utils" }
+
+[dependencies.uuid]
+version = "1.11.0"
+features = [
+    "v4",
+]
