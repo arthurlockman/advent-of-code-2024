@@ -4,6 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-itertools = "0.13.0"
 memoize = "0.4.2"
 utils = { version = "0.1.0", path = "../utils" }

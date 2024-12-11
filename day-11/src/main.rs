@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use std::collections::HashMap;
 use memoize::memoize;
 use utils::time;
@@ -11,7 +10,6 @@ fn main() {
     println!("Part 2: {} (took {} seconds)", part2, time2.as_secs_f64());
 }
 
-//noinspection RsUnstableItemUsage
 fn blink(stones: &str, times: u64) -> u64 {
     let mut stones_map: HashMap<u64, u64> = HashMap::new();
     for stone in stones.split_whitespace().map(|s| s.parse::<u64>().unwrap()) {
