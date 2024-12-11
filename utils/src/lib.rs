@@ -1,4 +1,7 @@
-use std::{fs::read_to_string, time::{Duration, SystemTime}};
+use std::{
+    fs::read_to_string,
+    time::{Duration, SystemTime},
+};
 
 pub fn read_lines(filename: &str) -> Vec<String> {
     read_to_string(filename)
