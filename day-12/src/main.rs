@@ -1,10 +1,8 @@
-use array2d::Array2D;
 use itertools::Itertools;
-use std::cmp::Ordering;
 use queues::{IsQueue, Queue};
 use utils::{read_lines, time};
 
-#[derive(Debug, Eq, Copy, Clone, Ord, Hash)]
+#[derive(Debug, Eq, Copy, Clone, Hash)]
 struct Plot {
     row: usize,
     col: usize,
@@ -22,20 +20,12 @@ impl Plot {
         }
     }
 
-    fn perimeter(&self, region: &Vec<Plot>) -> usize {
+    fn perimeter(&self, region: &Vec<&Plot>) -> usize {
         4 - self.valid_orthogonal_neighbors(region).len()
     }
 
-    fn is_neighbor(&self, other: &Plot) -> bool {
-        self.plant == other.plant
-            && (self.row + 1 == other.row && self.col == other.col
-                || self.row == other.row && self.col + 1 == other.col
-                || self.row as i32 - 1 == other.row as i32 && self.col == other.col
-                || self.row == other.row && self.col as i32 - 1 == other.col as i32)
-    }
-
-    fn valid_orthogonal_neighbors(&self, region: Vec<Plot>) -> Vec<Plot> {
-        let mut n: Vec<Plot> = Vec::new();
+    fn valid_orthogonal_neighbors<'a>(&'a self, region: &Vec<&'a Plot>) -> Vec<&'a Plot> {
+        let mut n: Vec<&Plot> = Vec::new();
         if let Some(&r) = region
             .iter()
             .find(|p| p.plant == self.plant && p.col == self.col + 1 && p.row == self.row)
@@ -68,15 +58,6 @@ impl Plot {
     }
 }
 
-impl PartialOrd for Plot {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.row == other.row {
-            return Some(self.col.cmp(&other.col));
-        }
-        Some(self.row.cmp(&other.row))
-    }
-}
-
 impl PartialEq for Plot {
     fn eq(&self, other: &Self) -> bool {
         self.row == other.row && self.col == other.col && self.plant == other.plant
@@ -84,10 +65,10 @@ impl PartialEq for Plot {
 }
 
 fn price(lines: Vec<String>) -> usize {
-    let plots: Vec<Vec<Plot>> = lines
+    let plots: Vec<Plot> = lines
         .iter()
         .enumerate()
-        .map(|line| {
+        .flat_map(|line| {
             line.1
                 .chars()
                 .enumerate()
@@ -95,26 +76,31 @@ fn price(lines: Vec<String>) -> usize {
                 .collect_vec()
         })
         .collect();
-    let mut map = Array2D::from_rows(&plots).unwrap();
 
-    for row in 0..map.row_len() {
-        for col in 0..map.column_len() {
-            let plot = map.get_mut(row, col).unwrap();
-            let mut queue: Queue<&mut Plot> = Queue::new();
-            queue.add(plot).expect("uh oh");
-            while queue.size() > 0 {
-                let mut p = queue.remove().unwrap();
-                p.visited = true;
+    let mut result = 0usize;
+    let mut visited: Vec<&Plot> = Vec::new();
+    for plot in &plots {
+        if visited.iter().any(|&x| x == plot) {
+           continue;
+        }
+        let mut region: Vec<&Plot> = Vec::new();
+        let mut queue: Queue<&Plot> = Queue::new();
+        queue.add(&plot).expect("uh oh");
+        while queue.size() > 0 {
+            let p = queue.remove().unwrap();
+            if visited.iter().any(|&x| x == p) {
+                continue;
+            }
+            visited.push(p);
+            region.push(p);
+            let neighbors = p.valid_orthogonal_neighbors(&plots.iter().collect_vec());
+            for neighbor in neighbors.into_iter() {
+                if !visited.iter().any(|&x| x == neighbor) {
+                    queue.add(&neighbor).expect("uh oh");
+                }
             }
         }
-    }
-    0
-}
-
-fn flood_fill<'a>(plot: &'a mut Plot, map: &'a mut Array2D<Plot>) -> Vec<&'a Plot> {
-    let mut result: Vec<&Plot> = Vec::new();
-    plot.visited = true;
-
+        result += region.len() * region.iter().map(|r| r.perimeter(&region)).sum::<usize>();
     }
     result
 }
