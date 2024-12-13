@@ -1,6 +1,7 @@
-use itertools::Itertools;
 use regex::Regex;
 use utils::{read_file, time};
+use z3::{Config, Context, SatResult, Solver};
+use z3::ast::{Ast, Int};
 
 struct Prize {
     x1: usize,
@@ -27,6 +28,8 @@ impl Prize {
 fn main() {
     let (part1, time1) = time(|| min_tokens("src/input.txt"));
     println!("Part 1: {} (took {} seconds)", part1, time1.as_secs_f64());
+    let (part2, time2) = time(|| min_tokens_2("src/input.txt"));
+    println!("Part 2: {} (took {} seconds)", part2, time2.as_secs_f64());
 }
 
 fn parse_input(filename: &str) -> Vec<Prize> {
@@ -67,6 +70,40 @@ fn solve_prize(prize: &Prize) -> Option<(usize, usize)> {
     }
 }
 
+fn solve_prize_z3(prize: &Prize) -> Option<u64> {
+    let config = Config::new();
+    let context = Context::new(&config);
+    let solver = Solver::new(&context);
+
+    let x1 = Int::from_u64(&context, prize.x1 as u64);
+    let x2 = Int::from_u64(&context, prize.x2 as u64);
+    let y1 = Int::from_u64(&context, prize.y1 as u64);
+    let y2 = Int::from_u64(&context, prize.y2 as u64);
+    let z1 = Int::from_u64(&context, prize.z1 as u64);
+    let z2 = Int::from_u64(&context, prize.z2 as u64);
+    let a = Int::new_const(&context, "a_presses");
+    let b = Int::new_const(&context, "b_presses");
+    let a_cost = Int::from_u64(&context, 3);
+    let b_cost = Int::from_u64(&context, 1);
+
+    solver.assert(&(x1 * &a + x2 * &b)._eq(&z1));
+    solver.assert(&(y1 * &a + y2 * &b)._eq(&z2));
+
+    let cost = Int::new_const(&context, "cost");
+    solver.assert(&cost._eq(&(a * a_cost + b * b_cost)));
+
+    match solver.check() {
+        SatResult::Sat => Some(solver
+            .get_model()
+            .unwrap()
+            .eval(&cost, true)
+            .unwrap()
+            .as_u64()
+            .unwrap()),
+        _ => None
+    }
+}
+
 fn min_tokens(filename: &str) -> usize {
     parse_input(filename)
         .iter()
@@ -77,17 +114,16 @@ fn min_tokens(filename: &str) -> usize {
         .sum::<usize>()
 }
 
-fn min_tokens_2(filename: &str) -> usize {
+fn min_tokens_2(filename: &str) -> u64 {
     let mut prizes = parse_input(filename);
     prizes.iter_mut().for_each(|p| {
         p.z1 += 10000000000000;
         p.z2 += 10000000000000;
     });
-    prizes.iter().map(|p| solve_prize(p))
+    prizes.iter().map(|p| solve_prize_z3(p))
         .filter(|p| p.is_some())
         .map(|p| p.unwrap())
-        .map(|p| p.0 * 3 + p.1)
-        .sum::<usize>()
+        .sum::<u64>()
 }
 
 #[cfg(test)]
@@ -97,11 +133,8 @@ mod tests {
     #[test]
     fn test_part_1() {
         let tokens = min_tokens("src/test-input.txt");
+        let tokens2 = min_tokens_2("src/test-input.txt");
         assert_eq!(tokens, 480);
-    }
-
-    #[test]
-    fn test_part_2() {
-        assert_eq!(true, true);
+        assert_eq!(tokens2, 875318608908);
     }
 }
