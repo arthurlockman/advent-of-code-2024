@@ -5,5 +5,9 @@ edition = "2021"
 
 [dependencies]
 array2d = "0.3.2"
+dashmap = { version = "6.1.0", features = ["rayon"] }
 itertools = "0.13.0"
+queues = "1.1.0"
+rayon = "1.10.0"
+spinner = "0.5.0"
 utils = { version = "0.1.0", path = "../utils" }

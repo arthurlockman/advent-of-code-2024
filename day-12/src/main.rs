@@ -1,18 +1,70 @@
 use array2d::Array2D;
 use itertools::Itertools;
 use std::cmp::Ordering;
-use utils::Array2DTools;
+use queues::{IsQueue, Queue};
+use utils::{read_lines, time};
 
 #[derive(Debug, Eq, Copy, Clone, Ord, Hash)]
 struct Plot {
     row: usize,
     col: usize,
     plant: char,
+    visited: bool,
 }
 
 impl Plot {
     fn new(row: usize, col: usize, plant: char) -> Plot {
-        Plot { row, col, plant }
+        Plot {
+            row,
+            col,
+            plant,
+            visited: false,
+        }
+    }
+
+    fn perimeter(&self, region: &Vec<Plot>) -> usize {
+        4 - self.valid_orthogonal_neighbors(region).len()
+    }
+
+    fn is_neighbor(&self, other: &Plot) -> bool {
+        self.plant == other.plant
+            && (self.row + 1 == other.row && self.col == other.col
+                || self.row == other.row && self.col + 1 == other.col
+                || self.row as i32 - 1 == other.row as i32 && self.col == other.col
+                || self.row == other.row && self.col as i32 - 1 == other.col as i32)
+    }
+
+    fn valid_orthogonal_neighbors(&self, region: Vec<Plot>) -> Vec<Plot> {
+        let mut n: Vec<Plot> = Vec::new();
+        if let Some(&r) = region
+            .iter()
+            .find(|p| p.plant == self.plant && p.col == self.col + 1 && p.row == self.row)
+        {
+            n.push(r);
+        }
+        if self.col as i32 - 1 >= 0 {
+            if let Some(&r) = region
+                .iter()
+                .find(|p| p.plant == self.plant && p.col == self.col - 1 && p.row == self.row)
+            {
+                n.push(r);
+            }
+        }
+        if let Some(&r) = region
+            .iter()
+            .find(|p| p.plant == self.plant && p.col == self.col && p.row == self.row + 1)
+        {
+            n.push(r);
+        }
+        if self.row as i32 - 1 >= 0 {
+            if let Some(&r) = region
+                .iter()
+                .find(|p| p.plant == self.plant && p.col == self.col && p.row == self.row - 1)
+            {
+                n.push(r);
+            }
+        }
+        n
     }
 }
 
@@ -31,8 +83,8 @@ impl PartialEq for Plot {
     }
 }
 
-fn build_regions(lines: Vec<String>) -> Vec<Vec<Plot>> {
-    let rows: Vec<Vec<Plot>> = lines
+fn price(lines: Vec<String>) -> usize {
+    let plots: Vec<Vec<Plot>> = lines
         .iter()
         .enumerate()
         .map(|line| {
@@ -43,58 +95,33 @@ fn build_regions(lines: Vec<String>) -> Vec<Vec<Plot>> {
                 .collect_vec()
         })
         .collect();
-    let map = Array2D::from_rows(&rows).expect("Failed to create plots");
-    let mut regions: Vec<Vec<Plot>> = Vec::new();
-    let mut visited: Vec<(usize, usize)> = Vec::new();
-    for ((row, col), plot) in map.enumerate_row_major() {
-        if visited.iter().any(|&(r, c)| r == row && c == col) {
-            continue;
+    let mut map = Array2D::from_rows(&plots).unwrap();
+
+    for row in 0..map.row_len() {
+        for col in 0..map.column_len() {
+            let plot = map.get_mut(row, col).unwrap();
+            let mut queue: Queue<&mut Plot> = Queue::new();
+            queue.add(plot).expect("uh oh");
+            while queue.size() > 0 {
+                let mut p = queue.remove().unwrap();
+                p.visited = true;
+            }
         }
-        let mut region: Vec<Plot> = Vec::new();
-        region.push(*plot);
-        visited.push((row, col));
-        let mut n = map
-            .neighbors(row, col)
-            .into_iter()
-            .filter(|&p| p.1.plant == plot.plant)
-            .collect_vec();
-        while n.len() > 0 {
-            region = region
-                .into_iter()
-                .chain(n.iter().map(|&p| p.1).cloned())
-                .collect_vec();
-            n = n
-                .into_iter()
-                .flat_map(|((row, col), _)| {
-                    map.neighbors(row, col)
-                        .into_iter()
-                        .filter(|&p| p.1.plant == plot.plant)
-                        .collect_vec()
-                })
-                .filter(|&p| !region.contains(&p.1))
-                .collect_vec();
-        }
-        region.sort();
-        regions.push(region.into_iter().unique().collect_vec());
     }
-    regions = regions.into_iter().unique().collect_vec();
-    // regions.iter().for_each(|region| println!("{:?}", region));
-
-    regions
+    0
 }
 
-fn area(region: Vec<Plot>) -> usize {
-    region.len()
-}
+fn flood_fill<'a>(plot: &'a mut Plot, map: &'a mut Array2D<Plot>) -> Vec<&'a Plot> {
+    let mut result: Vec<&Plot> = Vec::new();
+    plot.visited = true;
 
-fn perimeter(region: Vec<Plot>) -> usize {
-    // Go through each plot and find out how many sides of the plot are covered.
-    // if all sides are covered, perimeter is 0. then sum all the plots.
-    todo!();
+    }
+    result
 }
 
 fn main() {
-    println!("Hello, world!");
+    let (part1, time1) = time(|| price(read_lines("src/input.txt")));
+    println!("Part 1: {} (took {} seconds)", part1, time1.as_secs_f64());
 }
 
 #[cfg(test)]
@@ -104,8 +131,8 @@ mod tests {
 
     #[test]
     fn test_part_1() {
-        let regions = build_regions(read_lines("src/sample-map.txt"));
-        assert_eq!(regions.len(), 11);
+        let price = price(read_lines("src/sample-map.txt"));
+        assert_eq!(price, 1930);
     }
 
     #[test]
