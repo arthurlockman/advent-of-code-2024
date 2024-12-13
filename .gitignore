@@ -24,3 +24,5 @@ input.txt
 day-5/src/rules.txt
 day-5/src/pages.txt
 day-6/src/map.txt
+
+.DS_Store
