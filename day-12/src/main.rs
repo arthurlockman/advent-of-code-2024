@@ -2,22 +2,73 @@ use itertools::Itertools;
 use queues::{IsQueue, Queue};
 use utils::{read_lines, time};
 
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+enum Direction {
+    North,
+    East,
+    South,
+    West,
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+struct Side {
+    direction: Direction,
+    index: usize,
+}
+
+impl Side {
+    fn new(direction: Direction, index: usize) -> Self {
+        Self { direction, index }
+    }
+}
+
 #[derive(Debug, Eq, Copy, Clone, Hash)]
 struct Plot {
     row: usize,
     col: usize,
     plant: char,
-    visited: bool,
 }
 
 impl Plot {
     fn new(row: usize, col: usize, plant: char) -> Plot {
-        Plot {
-            row,
-            col,
-            plant,
-            visited: false,
+        Plot { row, col, plant }
+    }
+
+    fn get_sides(&self, region: &Vec<&Plot>) -> Vec<Side> {
+        let mut s: Vec<Side> = Vec::new();
+        let east = region
+            .iter()
+            .find(|p| p.plant == self.plant && p.col == self.col + 1 && p.row == self.row);
+        if east.is_none() {
+            s.push(Side::new(Direction::East, self.col));
         }
+        if self.col as i32 - 1 >= 0 {
+            let west = region
+                .iter()
+                .find(|p| p.plant == self.plant && p.col == self.col - 1 && p.row == self.row);
+            if west.is_none() {
+                s.push(Side::new(Direction::West, self.col));
+            }
+        } else {
+            s.push(Side::new(Direction::West, self.col));
+        }
+        let south = region
+            .iter()
+            .find(|p| p.plant == self.plant && p.col == self.col && p.row == self.row + 1);
+        if south.is_none() {
+            s.push(Side::new(Direction::South, self.row));
+        }
+        if self.row as i32 - 1 >= 0 {
+            let north = region
+                .iter()
+                .find(|p| p.plant == self.plant && p.col == self.col && p.row == self.row - 1);
+            if north.is_none() {
+                s.push(Side::new(Direction::North, self.row));
+            }
+        } else {
+            s.push(Side::new(Direction::North, self.row));
+        }
+        s
     }
 
     fn perimeter(&self, region: &Vec<&Plot>) -> usize {
@@ -64,7 +115,7 @@ impl PartialEq for Plot {
     }
 }
 
-fn price(lines: Vec<String>) -> usize {
+fn build_regions(lines: Vec<String>) -> Vec<Vec<Plot>> {
     let plots: Vec<Plot> = lines
         .iter()
         .enumerate()
@@ -77,11 +128,11 @@ fn price(lines: Vec<String>) -> usize {
         })
         .collect();
 
-    let mut result = 0usize;
+    let mut result: Vec<Vec<Plot>> = Vec::new();
     let mut visited: Vec<&Plot> = Vec::new();
     for plot in &plots {
         if visited.iter().any(|&x| x == plot) {
-           continue;
+            continue;
         }
         let mut region: Vec<&Plot> = Vec::new();
         let mut queue: Queue<&Plot> = Queue::new();
@@ -100,14 +151,63 @@ fn price(lines: Vec<String>) -> usize {
                 }
             }
         }
-        result += region.len() * region.iter().map(|r| r.perimeter(&region)).sum::<usize>();
+        result.push(region.into_iter().cloned().collect_vec());
+    }
+    result
+}
+
+fn price_part1(lines: Vec<String>) -> usize {
+    let regions = build_regions(lines);
+    let mut result = 0;
+    for region in regions.iter() {
+        result += region.len()
+            * region
+                .iter()
+                .map(|r| r.perimeter(&region.iter().collect_vec()))
+                .sum::<usize>();
+    }
+    result
+}
+
+fn price_part2(lines: Vec<String>) -> usize {
+    let regions = build_regions(lines);
+    let mut result = 0;
+    for region in regions {
+        let sides = region
+            .iter()
+            .flat_map(|p| {
+                p.get_sides(&region.iter().collect_vec())
+                    .iter()
+                    .map(|&s| (s, p))
+                    .collect_vec()
+            })
+            .into_group_map_by(|s| s.0);
+        let mut side_count = 0;
+        for (_, side) in sides {
+            let mut s: Vec<Vec<&Plot>> = Vec::new();
+            for (_, p) in side {
+                if let Some(possible_side) = s
+                    .iter()
+                    .position(|x| x.iter().any(|y| y.valid_orthogonal_neighbors(&vec![p]).len() != 0))
+                {
+                    let z = s.get_mut(possible_side).unwrap();
+                    z.push(p);
+                } else {
+                    s.push(vec![p]);
+                }
+            }
+            side_count += s.len();
+        }
+        result += side_count * region.len();
     }
     result
 }
 
 fn main() {
-    let (part1, time1) = time(|| price(read_lines("src/input.txt")));
+    let (part1, time1) = time(|| price_part1(read_lines("src/input.txt")));
     println!("Part 1: {} (took {} seconds)", part1, time1.as_secs_f64());
+    let (part2, time2) = time(|| price_part2(read_lines("src/input.txt")));
+    println!("Part 2: {} (took {} seconds)", part2, time2.as_secs_f64());
 }
 
 #[cfg(test)]
@@ -117,12 +217,13 @@ mod tests {
 
     #[test]
     fn test_part_1() {
-        let price = price(read_lines("src/sample-map.txt"));
+        let price = price_part1(read_lines("src/sample-map.txt"));
         assert_eq!(price, 1930);
     }
 
     #[test]
     fn test_part_2() {
-        assert_eq!(true, true);
+        let price = price_part2(read_lines("src/sample-map.txt"));
+        assert_eq!(price, 1206);
     }
 }

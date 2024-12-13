@@ -1,9 +1,9 @@
+use array2d::Array2D;
+use std::hash::Hash;
 use std::{
     fs::read_to_string,
     time::{Duration, SystemTime},
 };
-use std::hash::Hash;
-use array2d::Array2D;
 
 pub fn read_lines(filename: &str) -> Vec<String> {
     read_to_string(filename)
@@ -32,8 +32,8 @@ pub trait Array2DTools<T: Eq + Hash> {
 impl<T: Eq + Hash> Array2DTools<T> for Array2D<T> {
     fn neighbors(&self, row: usize, col: usize) -> Vec<((usize, usize), &T)> {
         let mut n: Vec<((usize, usize), &T)> = Vec::new();
-        for x in -1i32 ..= 1 {
-            for y in -1i32 ..= 1 {
+        for x in -1i32..=1 {
+            for y in -1i32..=1 {
                 if x == 0 && y == 0 {
                     continue;
                 } else {
