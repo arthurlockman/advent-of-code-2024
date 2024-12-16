@@ -1,7 +1,7 @@
-use std::collections::{BinaryHeap, HashMap, HashSet};
-use std::hash::Hash;
 use array2d::Array2D;
 use itertools::Itertools;
+use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::hash::Hash;
 use utils::{read_lines, time};
 
 fn main() {
@@ -32,8 +32,7 @@ struct Move(Direction, Point, i32, Vec<Point>);
 
 impl Ord for Move {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.2.cmp(&self.2)
-            .then_with(|| self.1.cmp(&other.1))
+        other.2.cmp(&self.2).then_with(|| self.1.cmp(&other.1))
     }
 }
 
@@ -116,7 +115,13 @@ fn cheapest_path(map: Array2D<Cell>, start: Point, finish: Point) -> (i32, i32) 
     let mut tiles_in_best_paths = HashSet::<Point>::new();
     let mut best = i32::MAX;
 
-    while let Some(Move {0: direction, 1: point, 2: cost, 3: path}) = heap.pop() {
+    while let Some(Move {
+        0: direction,
+        1: point,
+        2: cost,
+        3: path,
+    }) = heap.pop()
+    {
         if let Some(&c) = distances.get(&(point, direction)) {
             if cost > c {
                 continue;
