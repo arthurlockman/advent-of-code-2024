@@ -7,7 +7,8 @@ use utils::{read_lines, time};
 fn main() {
     let (map, start, finish) = parse_map("src/input.txt");
     let (part1, time1) = time(|| cheapest_path(map.clone(), start, finish));
-    println!("Part 1: {} (took {} seconds)", part1, time1.as_secs_f64());
+    println!("Part 1: {} (took {} seconds)", part1.0, time1.as_secs_f64());
+    println!("Part 2: {} (computed at same time as 1)", part1.1);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -26,8 +27,8 @@ enum Direction {
     West,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Move(Direction, Point, i32);
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Move(Direction, Point, i32, Vec<Point>);
 
 impl Ord for Move {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
@@ -52,11 +53,10 @@ impl Point {
         for neighbor in possible_neighbors {
             let row = self.0 - neighbor.0;
             let col = self.1 - neighbor.1;
-            if row >= 0 && col >= 0 {
-                if let Some(&n) = map.get(row as usize, col as usize) {
-                    if n != Cell::Wall {
-                        neighbors.push(Point(row, col));
-                    }
+
+            if let Some(&n) = map.get(row as usize, col as usize) {
+                if n != Cell::Wall {
+                    neighbors.push(Point(row, col));
                 }
             }
         }
@@ -109,38 +109,44 @@ fn parse_map(filename: &str) -> (Array2D<Cell>, Point, Point) {
     )
 }
 
-fn cheapest_path(map: Array2D<Cell>, start: Point, finish: Point) -> i32 {
-    let mut distances: HashMap<Point, i32> = HashMap::new();
+fn cheapest_path(map: Array2D<Cell>, start: Point, finish: Point) -> (i32, i32) {
+    let mut distances: HashMap<(Point, Direction), i32> = HashMap::new();
     let mut heap = BinaryHeap::new();
-    let mut visited: HashSet<(Point, Direction)> = HashSet::new();
-    distances.insert(start, 0);
-    heap.push(Move(Direction::East, start, 0));
-    let mut answers: Vec<i32> = Vec::new();
+    heap.push(Move(Direction::East, start, 0, vec![start]));
+    let mut tiles_in_best_paths = HashSet::<Point>::new();
+    let mut best = i32::MAX;
 
-    while let Some(Move {0: direction, 1: point, 2: cost}) = heap.pop() {
-        if point == finish {
-            answers.push(cost);
+    while let Some(Move {0: direction, 1: point, 2: cost, 3: path}) = heap.pop() {
+        if let Some(&c) = distances.get(&(point, direction)) {
+            if cost > c {
+                continue;
+            } else {
+                distances.insert((point, direction), cost);
+            }
+        } else {
+            distances.insert((point, direction), cost);
         }
-        visited.insert((point, direction));
+        if point == finish && cost <= best {
+            best = cost;
+            for tile in path {
+                tiles_in_best_paths.insert(tile);
+            }
+            continue;
+        }
+
         for edge in &point.orthogonal_neighbors(&map) {
             let d = point.direction(*edge);
-            let mut nc = 1;
+            let mut new_cost = 1;
             if d != direction {
-                nc += 1000;
+                new_cost += 1000;
             }
-            let next = Move(d, *edge, cost + nc);
-            let mut c = i32::MAX;
-            if let Some(dist) = distances.get(edge) {
-                c = *dist;
-            }
-            if next.2 <= c {
-                heap.push(next);
-                distances.insert(*edge, cost);
-            }
+            let mut new_path = path.clone();
+            new_path.push(*edge);
+            let next = Move(d, *edge, cost + new_cost, new_path);
+            heap.push(next);
         }
     }
-    println!("{:?}", answers);
-    0
+    (best, tiles_in_best_paths.len() as i32)
 }
 
 #[cfg(test)]
@@ -148,14 +154,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_part_1() {
+    fn test() {
         let (map, start, finish) = parse_map("src/test-input.txt");
         let result = cheapest_path(map, start, finish);
-        assert_eq!(result, 11048);
-    }
-
-    #[test]
-    fn test_part_2() {
-        assert_eq!(true, true);
+        assert_eq!(result.0, 11048);
+        assert_eq!(result.1, 64);
     }
 }
