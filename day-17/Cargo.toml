@@ -1,0 +1,11 @@
+[package]
+name = "day-17"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+utils = { version = "0.1.0", path = "../utils" }
+regex = "1.11.1"
+itertools = "0.13.0"
+num-derive = "0.4.2"
+num-traits = "0.2.19"
