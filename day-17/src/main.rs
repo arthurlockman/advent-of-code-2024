@@ -1,9 +1,11 @@
 #[macro_use]
 extern crate num_derive;
+
 use crate::instruction::{Execute, Executor, Instruction};
 use itertools::Itertools;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, ToPrimitive};
 use regex::Regex;
+use std::collections::HashSet;
 use utils::{read_file, time};
 
 mod instruction;
@@ -11,13 +13,48 @@ mod instruction;
 fn main() {
     let (output1, time1) = time(|| run("src/input.txt"));
     println!("Part 1: {} (took {} seconds)", output1, time1.as_secs_f64());
-    // let (output2, time2) = time(|| run2("src/input.txt"));
-    // println!("Part 2: {} (took {} seconds)", output2, time2.as_secs_f64());
+    let (output2, time2) = time(|| run2("src/input.txt"));
+    println!("Part 2: {} (took {} seconds)", output2, time2.as_secs_f64());
 }
 
 fn run(filename: &str) -> String {
-    let (mut exec, instructions) = parse_program(filename);
-    let mut output: Vec<u32> = Vec::new();
+    let (exec, instructions) = parse_program(filename);
+    _run(exec, instructions).into_iter().join(",")
+}
+
+fn run2(filename: &str) -> u64 {
+    let (exec, instructions) = parse_program(filename);
+    let decoded_inst = instructions
+        .iter()
+        .flat_map(|i| vec![i.0.to_u64().unwrap(), i.1])
+        .collect_vec();
+    let mut results: HashSet<u64> = HashSet::new();
+    results.insert(0);
+    for (idx, _) in decoded_inst.iter().enumerate().rev() {
+        let mut new_results: HashSet<u64> = HashSet::new();
+        for r in results {
+            // If you decompile the program it becomes apparent that the last 3 bits are what
+            // drives the output value, so we can programmatically check all combinations
+            // of the last 3 bits and then shift over the valid answers by 3. If we do this in
+            // sequence and ensure every time that our output continues to be OK, we will
+            // eventually find a valid value.
+            for x in 0..=7 {
+                let mut e = exec.clone();
+                let test_val = (r << 3) + x;
+                e.register_a = test_val;
+                let result = _run(e, instructions.clone());
+                if result == decoded_inst[idx..decoded_inst.len()] {
+                    new_results.insert(test_val);
+                }
+            }
+        }
+        results = new_results;
+    }
+    *results.iter().min().unwrap()
+}
+
+fn _run(mut exec: Executor, instructions: Vec<(Instruction, u64)>) -> Vec<u64> {
+    let mut output: Vec<u64> = Vec::new();
     while (exec.instruction_pointer as usize) < instructions.len() {
         let (inst, op) = &instructions[exec.instruction_pointer as usize];
         let result = inst.execute(*op, exec);
@@ -26,33 +63,10 @@ fn run(filename: &str) -> String {
             output.push(out);
         }
     }
-    output.into_iter().join(",")
+    output
 }
 
-fn run2(filename: &str) -> u32 {
-    let (exec, instructions) = parse_program(filename);
-    for a in 10000..u32::MAX {
-        let mut exec = exec.clone();
-        let mut output: Vec<u32> = Vec::new();
-        exec.register_a = a;
-        while (exec.instruction_pointer as usize) < instructions.len() {
-            let (inst, op) = &instructions[exec.instruction_pointer as usize];
-            let result = inst.execute(*op, exec);
-            exec = result.0;
-            if let Some(out) = result.1 {
-                output.push(out);
-            }
-        }
-        let val = output.into_iter().join(",");
-        println!("{}", a);
-        if val == "2,4,1,1,7,5,1,5,4,2,5,5,0,3,3,0" {
-            return a;
-        }
-    }
-    0
-}
-
-fn parse_program(filename: &str) -> (Executor, Vec<(Instruction, u32)>) {
+fn parse_program(filename: &str) -> (Executor, Vec<(Instruction, u64)>) {
     let file_contents = read_file(filename);
     let registers_regex =
         Regex::new(r"Register A: (\d+)\nRegister B: (\d+)\nRegister C: (\d+)").unwrap();
@@ -62,22 +76,22 @@ fn parse_program(filename: &str) -> (Executor, Vec<(Instruction, u32)>) {
         .captures_iter(&file_contents)
         .map(|c| c.extract())
         .collect_vec()[0];
-    let ops: Vec<(Instruction, u32)> = program_regex
+    let ops: Vec<(Instruction, u64)> = program_regex
         .captures_iter(&file_contents)
         .map(|c| c.extract())
         .map(|(_, [op, val])| {
             (
-                Instruction::from_u32(op.parse::<u32>().unwrap()).unwrap(),
-                val.parse::<u32>().unwrap(),
+                Instruction::from_u64(op.parse::<u64>().unwrap()).unwrap(),
+                val.parse::<u64>().unwrap(),
             )
         })
         .collect_vec();
     (
         Executor::new(
             0,
-            register_a.parse::<u32>().unwrap(),
-            register_b.parse::<u32>().unwrap(),
-            register_c.parse::<u32>().unwrap(),
+            register_a.parse::<u64>().unwrap(),
+            register_b.parse::<u64>().unwrap(),
+            register_c.parse::<u64>().unwrap(),
         ),
         ops,
     )

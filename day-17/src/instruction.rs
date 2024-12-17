@@ -1,5 +1,5 @@
 #[allow(non_camel_case_types)]
-#[derive(FromPrimitive, Debug)]
+#[derive(FromPrimitive, Debug, ToPrimitive, Clone, Copy)]
 pub enum Instruction {
     adv = 0,
     bxl = 1,
@@ -12,14 +12,14 @@ pub enum Instruction {
 }
 
 pub trait Execute {
-    fn execute(&self, operand: u32, exec: Executor) -> (Executor, Option<u32>);
+    fn execute(&self, operand: u64, exec: Executor) -> (Executor, Option<u64>);
 }
 
 impl Execute for Instruction {
-    fn execute(&self, operand: u32, exec: Executor) -> (Executor, Option<u32>) {
+    fn execute(&self, operand: u64, exec: Executor) -> (Executor, Option<u64>) {
         let mut exec = exec;
-        let mut output: Option<u32> = None;
-        let handle_combo = || -> u32 {
+        let mut output: Option<u64> = None;
+        let handle_combo = || -> u64 {
             // Combo operands 0 through 3 represent literal values 0 through 3.
             // Combo operand 4 represents the value of register A.
             // Combo operand 5 represents the value of register B.
@@ -40,7 +40,7 @@ impl Execute for Instruction {
         match self {
             Instruction::adv => {
                 // Divide A / 2^(combo operand), truncate to int and store in A, increment inst pointer by 1
-                exec.register_a = exec.register_a / 2u32.pow(handle_combo());
+                exec.register_a = exec.register_a / 2u64.pow(handle_combo() as u32);
                 exec.instruction_pointer += 1;
             }
             Instruction::bxl => {
@@ -73,12 +73,12 @@ impl Execute for Instruction {
             }
             Instruction::bdv => {
                 // Divide A / 2^(combo operand), truncate to int and store in B, increment inst pointer by 1
-                exec.register_b = exec.register_a / 2u32.pow(handle_combo());
+                exec.register_b = exec.register_a / 2u64.pow(handle_combo() as u32);
                 exec.instruction_pointer += 1;
             }
             Instruction::cdv => {
                 // Divide A / 2^(combo operand), truncate to int and store in C, increment inst pointer by 1
-                exec.register_c = exec.register_a / 2u32.pow(handle_combo());
+                exec.register_c = exec.register_a / 2u64.pow(handle_combo() as u32);
                 exec.instruction_pointer += 1;
             }
         }
@@ -88,18 +88,18 @@ impl Execute for Instruction {
 
 #[derive(Debug, Copy, Clone)]
 pub struct Executor {
-    pub instruction_pointer: u32,
-    pub register_a: u32,
-    pub register_b: u32,
-    pub register_c: u32,
+    pub instruction_pointer: u64,
+    pub register_a: u64,
+    pub register_b: u64,
+    pub register_c: u64,
 }
 
 impl Executor {
     pub(crate) fn new(
-        instruction_pointer: u32,
-        register_a: u32,
-        register_b: u32,
-        register_c: u32,
+        instruction_pointer: u64,
+        register_a: u64,
+        register_b: u64,
+        register_c: u64,
     ) -> Executor {
         Executor {
             instruction_pointer,
