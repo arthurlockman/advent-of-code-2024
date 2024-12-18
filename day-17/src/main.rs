@@ -12,9 +12,9 @@ mod instruction;
 
 fn main() {
     let (output1, time1) = time(|| run("src/input.txt"));
-    println!("Part 1: {} (took {} seconds)", output1, time1.as_secs_f64());
+    println!("Part 1: {} (took {} µs)", output1, time1.as_micros());
     let (output2, time2) = time(|| run2("src/input.txt"));
-    println!("Part 2: {} (took {} seconds)", output2, time2.as_secs_f64());
+    println!("Part 2: {} (took {} µs)", output2, time2.as_micros());
 }
 
 fn run(filename: &str) -> String {
