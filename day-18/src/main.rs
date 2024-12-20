@@ -1,7 +1,7 @@
 use array2d::Array2D;
 use itertools::Itertools;
 use pathfinding::prelude::dijkstra;
-use utils::{read_lines, time};
+use utils::{read_lines, time, Point};
 
 fn main() {
     let (part1, time1) = time(|| part_1("src/input.txt", 1024, 70));
@@ -12,32 +12,6 @@ fn main() {
         part2.unwrap(),
         time2.as_millis()
     );
-}
-
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-struct Point {
-    row: i32,
-    col: i32,
-}
-
-impl Point {
-    fn new(row: i32, col: i32) -> Self {
-        Point { row, col }
-    }
-
-    fn neighbors(&self) -> Vec<(Point, usize)> {
-        let &Point { row, col } = self;
-        vec![
-            Point::new(row + 1, col),
-            Point::new(row - 1, col),
-            Point::new(row, col + 1),
-            Point::new(row, col - 1),
-        ]
-        .into_iter()
-        .filter(|p| p.row >= 0 && p.col >= 0)
-        .map(|p| (p, 1))
-        .collect_vec()
-    }
 }
 
 fn parse(filename: &str) -> Vec<(usize, usize)> {

@@ -1,3 +1,7 @@
+mod pathfinding;
+
+pub use pathfinding::*;
+
 use array2d::Array2D;
 use std::hash::Hash;
 use std::{
