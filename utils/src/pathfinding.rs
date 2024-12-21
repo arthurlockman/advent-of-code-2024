@@ -2,6 +2,7 @@ use crate::read_lines;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::ops::Sub;
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Point {
@@ -26,6 +27,13 @@ impl Point {
         .filter(|p| p.row >= 0 && p.col >= 0)
         .map(|p| (p, 1))
         .collect_vec()
+    }
+}
+
+impl Sub for Point {
+    type Output = Point;
+    fn sub(self, rhs: Point) -> Point {
+        Point::new(self.row - rhs.row, self.col - rhs.col)
     }
 }
 
