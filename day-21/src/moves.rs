@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Move {
     Up,
     Down,

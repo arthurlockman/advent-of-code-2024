@@ -5,13 +5,32 @@ use crate::button::{Button, ToButton};
 use crate::moves::Move;
 use itertools::Itertools;
 use std::collections::HashMap;
-use utils::Point;
+use utils::{time, Point};
 
 fn main() {
-    println!("{}", code_difficulty("379A"));
+    let (part1, time1) = time(|| part_1());
+    println!("Part 1: {} (took {} secs)", part1, time1.as_secs_f64());
+    let (part2, time2) = time(|| part_2());
+    println!("Part 2: {} (took {} secs)", part2, time2.as_secs_f64());
 }
 
-fn code_difficulty(desired_code: &str) -> usize {
+fn part_1() -> usize {
+    let mut r: usize = 0;
+    for i in vec!["319a", "670a", "349a", "964a", "586a"] {
+        r += code_difficulty(i, 2);
+    }
+    r
+}
+
+fn part_2() -> usize {
+    let mut r: usize = 0;
+    for i in vec!["319a", "670a", "349a", "964a", "586a"] {
+        r += code_difficulty(i, 25);
+    }
+    r
+}
+
+fn code_difficulty(desired_code: &str, iterations: usize) -> usize {
     let numeric_pad: HashMap<Button, Point> = vec![
         (Button::Seven, Point::new(0, 0)),
         (Button::Eight, Point::new(0, 1)),
@@ -36,31 +55,32 @@ fn code_difficulty(desired_code: &str) -> usize {
     ]
     .into_iter()
     .collect();
-    let s1 = find_control_sequence(desired_code, &numeric_pad, Button::LetterA);
-    let s2 = find_control_sequence(&s1, &directional_pad, Button::Activate);
-    let s3 = find_control_sequence(
-        &"v<<A>>^A<A>AvA<^AA>A<vAAA>^A",
-        &directional_pad,
-        Button::Activate,
+    let mut s = find_control_sequence(
+        desired_code,
+        &numeric_pad,
+        Button::LetterA,
+        &Point::new(3, 0),
     );
-    let s = s3.chars().count();
-    let c = desired_code[0..3].to_string().parse::<usize>().unwrap();
-    s3.chars().count() * desired_code[0..3].to_string().parse::<usize>().unwrap()
+    for _ in 0..iterations {
+        s = find_control_sequence(&s, &directional_pad, Button::Activate, &Point::new(0, 0));
+    }
+    s.chars().count() * desired_code[0..3].to_string().parse::<usize>().unwrap()
 }
 
 fn find_control_sequence(
     desired_output: &str,
     pad: &HashMap<Button, Point>,
     start: Button,
+    hole: &Point,
 ) -> String {
     let mut current_button = start;
     let mut moves = Vec::<Move>::new();
     for c in desired_output.chars() {
         let desired_button = c.to_button();
-        println!("Moving from {} to {}", current_button, desired_button);
         let m = find_move(
             pad.get(&current_button).unwrap(),
             pad.get(&desired_button).unwrap(),
+            hole,
         );
         m.iter().for_each(|mv| moves.push(mv.clone()));
         current_button = desired_button;
@@ -68,27 +88,49 @@ fn find_control_sequence(
     moves.iter().join("")
 }
 
-fn find_move(a: &Point, b: &Point) -> Vec<Move> {
+fn find_move(a: &Point, b: &Point, hole: &Point) -> Vec<Move> {
     let net_move = b.clone() - a.clone();
-    println!("A: {:?}, B: {:?} net_move: {:?}", a, b, net_move);
     let mut moves = Vec::<Move>::new();
-    for _ in 0..net_move.col.abs() {
-        moves.push(if net_move.col > 0 {
-            Move::Right
-        } else {
-            Move::Left
-        })
+    let mut order = Vec::<Move>::new();
+    if net_move.col < 0 && a.row == hole.row && b.col == hole.col {
+        //vertical, horizontal
+        order.push(Move::Up);
+        order.push(Move::Right);
+    } else if net_move.row > 0 && a.col == hole.col && b.row == hole.row {
+        //h, v
+        order.push(Move::Right);
+        order.push(Move::Up);
+    } else if net_move.row < 0 {
+        //h, v
+        order.push(Move::Right);
+        order.push(Move::Up);
+    } else {
+        //v, h
+        order.push(Move::Up);
+        order.push(Move::Right);
     }
-    for _ in 0..net_move.row.abs() {
-        moves.push(if net_move.row > 0 {
-            Move::Down
-        } else {
-            Move::Up
-        })
+    for m in order {
+        if m == Move::Up {
+            for _ in 0..net_move.row.abs() {
+                moves.push(if net_move.row > 0 {
+                    Move::Down
+                } else {
+                    Move::Up
+                })
+            }
+        } else if m == Move::Right {
+            for _ in 0..net_move.col.abs() {
+                moves.push(if net_move.col > 0 {
+                    Move::Right
+                } else {
+                    Move::Left
+                })
+            }
+        }
     }
+
     moves.push(Move::Press);
-    println!("moves: {:?}", moves.iter().join(""));
-    moves // TODO: handle the corner cases where the robot moves over empty space and crashes, that's why this doesn't work
+    moves
 }
 
 #[cfg(test)]
@@ -97,15 +139,10 @@ mod tests {
 
     #[test]
     fn test_part_1() {
-        assert_eq!(code_difficulty("029a"), 68 * 29);
-        assert_eq!(code_difficulty("980a"), 60 * 980);
-        assert_eq!(code_difficulty("179a"), 68 * 179);
-        assert_eq!(code_difficulty("456a"), 64 * 456);
-        assert_eq!(code_difficulty("379a"), 64 * 379);
-    }
-
-    #[test]
-    fn test_part_2() {
-        assert_eq!(true, true);
+        assert_eq!(code_difficulty("029a", 2), 68 * 29);
+        assert_eq!(code_difficulty("980a", 2), 60 * 980);
+        assert_eq!(code_difficulty("179a", 2), 68 * 179);
+        assert_eq!(code_difficulty("456a", 2), 64 * 456);
+        assert_eq!(code_difficulty("379a", 2), 64 * 379);
     }
 }
