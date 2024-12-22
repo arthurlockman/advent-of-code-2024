@@ -4,6 +4,7 @@ mod moves;
 use crate::button::{Button, ToButton};
 use crate::moves::Move;
 use itertools::Itertools;
+use memoize::memoize;
 use std::collections::HashMap;
 use utils::{time, Point};
 
@@ -14,23 +15,23 @@ fn main() {
     println!("Part 2: {} (took {} secs)", part2, time2.as_secs_f64());
 }
 
-fn part_1() -> usize {
-    let mut r: usize = 0;
+fn part_1() -> u128 {
+    let mut r: u128 = 0;
     for i in vec!["319a", "670a", "349a", "964a", "586a"] {
         r += code_difficulty(i, 2);
     }
     r
 }
 
-fn part_2() -> usize {
-    let mut r: usize = 0;
+fn part_2() -> u128 {
+    let mut r: u128 = 0;
     for i in vec!["319a", "670a", "349a", "964a", "586a"] {
         r += code_difficulty(i, 25);
     }
     r
 }
 
-fn code_difficulty(desired_code: &str, iterations: usize) -> usize {
+fn code_difficulty(desired_code: &str, iterations: usize) -> u128 {
     let numeric_pad: HashMap<Button, Point> = vec![
         (Button::Seven, Point::new(0, 0)),
         (Button::Eight, Point::new(0, 1)),
@@ -61,10 +62,11 @@ fn code_difficulty(desired_code: &str, iterations: usize) -> usize {
         Button::LetterA,
         &Point::new(3, 0),
     );
-    for _ in 0..iterations {
+    for i in 0..iterations {
         s = find_control_sequence(&s, &directional_pad, Button::Activate, &Point::new(0, 0));
+        println!("Finished loop {}", i);
     }
-    s.chars().count() * desired_code[0..3].to_string().parse::<usize>().unwrap()
+    s.chars().count() as u128 * desired_code[0..3].to_string().parse::<usize>().unwrap() as u128
 }
 
 fn find_control_sequence(
@@ -78,17 +80,20 @@ fn find_control_sequence(
     for c in desired_output.chars() {
         let desired_button = c.to_button();
         let m = find_move(
-            pad.get(&current_button).unwrap(),
-            pad.get(&desired_button).unwrap(),
-            hole,
+            pad.get(&current_button).unwrap().clone(),
+            pad.get(&desired_button).unwrap().clone(),
+            hole.clone(),
         );
-        m.iter().for_each(|mv| moves.push(mv.clone()));
+        moves.extend(m);
         current_button = desired_button;
     }
-    moves.iter().join("")
+    let r = moves.iter().join("");
+    r
 }
 
-fn find_move(a: &Point, b: &Point, hole: &Point) -> Vec<Move> {
+#[memoize]
+fn find_move(a: Point, b: Point, hole: Point) -> Vec<Move> {
+    println!("finding move");
     let net_move = b.clone() - a.clone();
     let mut moves = Vec::<Move>::new();
     let mut order = Vec::<Move>::new();
