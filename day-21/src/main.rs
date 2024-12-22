@@ -1,11 +1,10 @@
 mod button;
-mod moves;
 
 use crate::button::{Button, ToButton};
-use crate::moves::Move;
 use itertools::Itertools;
 use memoize::memoize;
 use std::collections::HashMap;
+use std::iter::zip;
 use std::sync::LazyLock;
 use utils::{time, Point};
 
@@ -21,7 +20,7 @@ static NUMERIC_PAD: LazyLock<HashMap<Button, Point>> = LazyLock::new(|| {
         (Button::Two, Point::new(2, 1)),
         (Button::Three, Point::new(2, 2)),
         (Button::Zero, Point::new(3, 1)),
-        (Button::LetterA, Point::new(3, 2)),
+        (Button::Activate, Point::new(3, 2)),
     ]
     .into_iter()
     .collect()
@@ -40,121 +39,70 @@ static D_PAD: LazyLock<HashMap<Button, Point>> = LazyLock::new(|| {
 });
 
 fn main() {
-    let (part1, time1) = time(|| part_1());
+    let (part1, time1) = time(|| solve(4));
     println!("Part 1: {} (took {} secs)", part1, time1.as_secs_f64());
-    let (part2, time2) = time(|| part_2());
+    let (part2, time2) = time(|| solve(27));
     println!("Part 2: {} (took {} secs)", part2, time2.as_secs_f64());
 }
 
-fn part_1() -> u128 {
+fn solve(keypads: i32) -> u128 {
     let mut r: u128 = 0;
-    for i in vec!["319a", "670a", "349a", "964a", "586a"] {
-        r += code_difficulty(i, 2);
+    for i in vec!["319A", "670A", "349A", "964A", "586A"] {
+        r += shortest(i.to_string(), keypads) * i[0..3].to_string().parse::<u128>().unwrap()
     }
-    r
-}
-
-fn part_2() -> u128 {
-    let mut r: u128 = 0;
-    for i in vec!["319a", "670a", "349a", "964a", "586a"] {
-        r += code_difficulty(i, 25);
-    }
-    r
-}
-
-fn code_difficulty(desired_code: &str, iterations: usize) -> u128 {
-    let mut s = find_control_sequence(
-        desired_code,
-        &NUMERIC_PAD,
-        Button::LetterA,
-        &Point::new(3, 0),
-    );
-    for i in 0..iterations {
-        s = find_control_sequence(&s, &D_PAD, Button::Activate, &Point::new(0, 0));
-        println!("Finished loop {}", i);
-    }
-    s.chars().count() as u128 * desired_code[0..3].to_string().parse::<usize>().unwrap() as u128
-}
-
-fn find_control_sequence(
-    desired_output: &str,
-    pad: &HashMap<Button, Point>,
-    start: Button,
-    hole: &Point,
-) -> String {
-    let mut current_button = start;
-    let mut moves = Vec::<Move>::new();
-    for c in desired_output.chars() {
-        let desired_button = c.to_button();
-        let m = find_move(
-            pad.get(&current_button).unwrap().clone(),
-            pad.get(&desired_button).unwrap().clone(),
-            hole.clone(),
-        );
-        moves.extend(m);
-        current_button = desired_button;
-    }
-    let r = moves.iter().join("");
     r
 }
 
 #[memoize]
-fn find_move(a: Point, b: Point, hole: Point) -> Vec<Move> {
-    println!("finding move");
-    let net_move = b.clone() - a.clone();
-    let mut moves = Vec::<Move>::new();
-    let mut order = Vec::<Move>::new();
-    if net_move.col < 0 && a.row == hole.row && b.col == hole.col {
-        //vertical, horizontal
-        order.push(Move::Up);
-        order.push(Move::Right);
-    } else if net_move.row > 0 && a.col == hole.col && b.row == hole.row {
-        //h, v
-        order.push(Move::Right);
-        order.push(Move::Up);
-    } else if net_move.row < 0 {
-        //h, v
-        order.push(Move::Right);
-        order.push(Move::Up);
-    } else {
-        //v, h
-        order.push(Move::Up);
-        order.push(Move::Right);
+fn shortest(moves: String, depth: i32) -> u128 {
+    if depth == 1 {
+        return moves.chars().count() as u128;
     }
-    for m in order {
-        if m == Move::Up {
-            for _ in 0..net_move.row.abs() {
-                moves.push(if net_move.row > 0 {
-                    Move::Down
-                } else {
-                    Move::Up
-                })
-            }
-        } else if m == Move::Right {
-            for _ in 0..net_move.col.abs() {
-                moves.push(if net_move.col > 0 {
-                    Move::Right
-                } else {
-                    Move::Left
-                })
-            }
-        }
+    let numeric = "1234567890".chars().any(|x| moves.contains(x));
+    let mut res = 0u128;
+    for (key1, key2) in zip(format!("A{}", moves).chars(), moves.chars()) {
+        let sp = shortest_path(key1.to_button(), key2.to_button(), numeric);
+        res += sp
+            .into_iter()
+            .map(|s| shortest(format!("{}A", s), depth - 1))
+            .min()
+            .unwrap()
     }
-
-    moves.push(Move::Press);
-    moves
+    res
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::code_difficulty;
+#[memoize]
+fn shortest_path(a: Button, b: Button, numeric: bool) -> Vec<String> {
+    let keypad = if numeric { &NUMERIC_PAD } else { &D_PAD };
+    let pos1 = keypad.get(&a).unwrap().clone();
+    let pos2 = keypad.get(&b).unwrap().clone();
+    let (dr, dc) = (pos2.row - pos1.row, pos2.col - pos1.col);
 
-    #[test]
-    fn test_part_1() {
-        assert_eq!(code_difficulty("029a", 2), 68 * 29);
-        assert_eq!(code_difficulty("980a", 2), 60 * 980);
-        assert_eq!(code_difficulty("179a", 2), 68 * 179);
-        assert_eq!(code_difficulty("456a", 2), 64 * 456);
-        assert_eq!(code_difficulty("379a", 2), 64 * 379);
+    let row_moves = if dr >= 0 {
+        "v".repeat(dr as usize)
+    } else {
+        "^".repeat(dr.abs() as usize)
+    };
+    let col_moves = if dc >= 0 {
+        ">".repeat(dc as usize)
+    } else {
+        "<".repeat(dc.abs() as usize)
+    };
+
+    if dr == 0 && dc == 0 {
+        vec!["".to_string()]
+    } else if dr == 0 {
+        vec![col_moves]
+    } else if dc == 0 {
+        vec![row_moves]
+    } else if !keypad.values().contains(&Point::new(pos1.row, pos2.col)) {
+        vec![format!("{}{}", row_moves, col_moves)]
+    } else if !keypad.values().contains(&Point::new(pos2.row, pos1.col)) {
+        vec![format!("{}{}", col_moves, row_moves)]
+    } else {
+        vec![
+            format!("{}{}", col_moves, row_moves),
+            format!("{}{}", row_moves, col_moves),
+        ]
     }
 }
