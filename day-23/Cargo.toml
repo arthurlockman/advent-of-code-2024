@@ -1,0 +1,9 @@
+[package]
+name = "day-23"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+itertools = "0.13.0"
+petgraph = "0.6.5"
+utils = { version = "0.1.0", path = "../utils" }
