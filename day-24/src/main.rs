@@ -22,7 +22,7 @@ impl PartialOrd for Term {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Equation {
     left: Term,
     right: Term,
@@ -162,49 +162,34 @@ fn part_1(filename: &str) -> usize {
 }
 
 fn part_2(filename: &str) -> String {
-    let equations = parse_equations(filename, None);
-    let mut problems = Vec::<&str>::new();
+    let mut equations = parse_equations(filename, None);
+    let mut problems = Vec::<String>::new();
 
-    let find = |n1: &str, n2: &str, op: Operand| -> Option<&str> {
-        if let Some(&ref n) = equations.iter().find(|e| {
+    let find = |n1: String, n2: String, op: Operand, e: Vec<Equation>| -> Option<String> {
+        if let Some(&ref n) = e.iter().find(|e| {
             e.operand == op
                 && ((e.left.name == n1 && e.right.name == n2)
                     || (e.left.name == n2 && e.right.name == n1))
         }) {
-            Some(&n.result.name)
+            Some(n.result.name.clone())
         } else {
             None
         }
-    };
-    let find_by_result = |n1: &str, n2: &str, op: Operand| -> Option<&str> {
-        if let Some(&ref n) = equations.iter().find(|e| {
-            e.operand == op
-                && ((e.left.name == n1 && e.result.name == n2)
-                    || (e.result.name == n2 && e.right.name == n1))
-        }) {
-            Some(if n.left.name == n1 {
-                &n.right.name
-            } else {
-                &n.left.name
-            })
-        } else {
-            None
-        }
-    };
-    let find_eq = |r: &str, op: Operand| -> Option<&Equation> {
-        equations
-            .iter()
-            .find(|e| e.result.name == r && e.operand == op)
     };
 
     // As we go, we'll need to identify the carry node
-    let mut carry = "";
+    let mut carry = "".to_string();
     // Gate 0 will be a half-adder
     let (x, y, _) = ("x00", "y00", "z00");
     // for this first half-adder really we only care about the carry bit
-    if let Some(c00) = find(x, y, Operand::AND) {
+    if let Some(c00) = find(
+        x.to_string(),
+        y.to_string(),
+        Operand::AND,
+        equations.clone(),
+    ) {
         // We found the carry bit, store it
-        carry = &c00;
+        carry = c00;
     }
 
     // All of 1 - 44 should be full-adders
@@ -215,46 +200,89 @@ fn part_2(filename: &str) -> String {
             format!("y{:02}", i),
             format!("z{:02}", i),
         );
-        println!("{} {} {}", x, y, z);
         // first let's find n1 (x ^ y)
-        let n1 = find(&x, &y, Operand::XOR).unwrap();
+        let n1 = find(x.clone(), y.clone(), Operand::XOR, equations.clone()).unwrap();
         // next n2 (x & y)
-        let n2 = find(&x, &y, Operand::AND).unwrap();
+        let n2 = find(x.clone(), y.clone(), Operand::AND, equations.clone()).unwrap();
         // Now find n3 (carry & n1)
-        let mut n3 = find(n1, carry, Operand::AND);
+        let mut n3 = find(
+            n1.clone(),
+            carry.to_string(),
+            Operand::AND,
+            equations.clone(),
+        );
         // Now let's find Z (n1 ^ carry)
-        let mut zn = find(n1, carry, Operand::XOR);
+        let zn = find(
+            n1.clone(),
+            carry.to_string(),
+            Operand::XOR,
+            equations.clone(),
+        );
         // now that we've collected all the vars, let's figure out if anything is wrong
         if zn.is_none() || n3.is_none() {
-            // something's wrong with either the previous carry or n1
-            println!("Something wrong with C {} or n1 {}", carry, n1);
-            // can we find the correct c(in) by searching for z?
-            if let Some(c) = find_by_result(n1, &z, Operand::XOR) {
-                println!("Carry should be {}", c);
-                zn = find(n1, c, Operand::XOR);
-                n3 = find(n1, c, Operand::AND);
-                println!("Found new zn and n3: {} {}", zn.unwrap(), n3.unwrap());
-                println!("Swapped {} and {}", c, carry);
-                problems.push(c);
-                problems.push(carry);
-                carry = find(&n2, &n3.unwrap(), Operand::OR).unwrap();
-            }
+            // something's wrong with either the previous carry or n1, most likely n1
+            // try swapping n1 and n2
+            problems.push(n1.clone());
+            problems.push(n2.clone());
+            let n1_eq = equations
+                .iter_mut()
+                .find(|e| e.result.name == n1.to_string())
+                .unwrap();
+            n1_eq.result.name = n2.clone();
+            let n2_eq = equations
+                .iter_mut()
+                .find(|e| e.result.name == n2.clone())
+                .unwrap();
+            n2_eq.result.name = n1.clone();
+            println!("Swapped {} and {}", n1.clone(), n2.clone());
+            n3 = find(
+                n2.clone(),
+                carry.to_string(),
+                Operand::AND,
+                equations.clone(),
+            );
+            carry = find(n1, n3.unwrap(), Operand::OR, equations.clone()).unwrap();
         } else {
-            if zn.unwrap() != z {
+            if zn.clone().unwrap() != z {
                 println!(
                     "Something's wrong with {}, zn points to {} instead",
                     z,
-                    zn.unwrap()
+                    zn.clone().unwrap()
                 );
-                // let's find the actual Z
-                if let Some(c) = find_eq(&z, Operand::XOR) {
-                    println!("Carry should be {:?}", c);
+                let zn_name = zn.clone().unwrap().to_string();
+                problems.push(z.clone());
+                problems.push(zn_name.clone());
+                let z_eq = equations
+                    .iter_mut()
+                    .find(|e| e.result.name == z.to_string())
+                    .unwrap();
+                z_eq.result.name = zn_name.clone();
+                let zn_eq = equations
+                    .iter_mut()
+                    .find(|e| e.result.name == zn_name.clone())
+                    .unwrap();
+                zn_eq.result.name = z.to_string();
+                if z == n1.clone() {
+                    n3 = find(
+                        n2.clone(),
+                        zn.clone().unwrap(),
+                        Operand::AND,
+                        equations.clone(),
+                    );
+                    carry = find(n2.clone(), n3.unwrap(), Operand::OR, equations.clone()).unwrap();
+                } else if z == n2.clone() {
+                    carry =
+                        find(zn_name.clone(), n3.unwrap(), Operand::OR, equations.clone()).unwrap();
+                } else if z == n3.clone().unwrap() {
+                    carry =
+                        find(n2.clone(), zn_name.clone(), Operand::OR, equations.clone()).unwrap();
                 } else {
-                    println!("Couldn't find z by result....");
+                    // z was wired to carry
+                    carry = zn.clone().unwrap()
                 }
             } else {
                 // Finally, the next carry
-                carry = find(&n2, &n3.unwrap(), Operand::OR).unwrap();
+                carry = find(n2, n3.unwrap(), Operand::OR, equations.clone()).unwrap();
             }
         }
     }
